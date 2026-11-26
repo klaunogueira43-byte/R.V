@@ -1,1 +1,20 @@
-Coloque as fotos dos imoveis aqui, na mesma pasta do index.html (ex.: sala.jpg), e use apenas o nome do arquivo no cadastro (sala.jpg).
+R.V Radar de Vendas  -  agora ligado ao Supabase
+
+COMO FUNCIONA
+- Os imóveis, os textos do site e os perfis dos corretores ficam no Supabase (banco de dados).
+- As fotos ficam no Supabase Storage (bucket "imoveis-fotos").
+- O corretor entra pela engrenagem > "Área do corretor" com e-mail e senha.
+- Tudo que o corretor salva vai direto para o banco: o site dos clientes mostra a mudança na hora
+  (quem está com a página aberta vê atualizar sozinho). Não precisa mais exportar nem subir arquivo.
+
+NOVO CORRETOR
+1. Supabase > Authentication > Users > Add user (e-mail + senha, marque "Auto Confirm User").
+2. Vincular o usuário à tabela de acesso (SQL Editor):
+   update public.corretores_acesso a set user_id = u.id
+   from auth.users u where lower(u.email) = lower(a.email) and a.user_id is null;
+   (antes, a coluna "email" da linha do corretor em corretores_acesso precisa estar preenchida)
+
+IMPORTANTE
+- Em Authentication > Sign In / Providers, desligue "Allow new users to sign up".
+- Nunca coloque a chave "service_role"/"secret" neste site. A chave publishable em config.js é pública por natureza.
+- O arquivo imoveis.json é só um backup dos dados antigos; o site não usa mais.

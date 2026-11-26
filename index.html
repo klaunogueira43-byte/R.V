@@ -16,11 +16,7 @@
 <button class="pri" id="novo">Novo imóvel</button>
 <button id="site">Editar site</button>
 <button id="perfil">Meu perfil</button>
-<button id="exp">Exportar dados</button>
-<button id="imp">Importar</button>
-<button id="rst">Descartar alterações</button>
 <button id="sair">Sair</button>
-<input type="file" id="impf" accept=".json" hidden>
 </div></div>
 <main class="wrap">
 <section class="hero"><h1 id="hTitulo">Encontre seu próximo apartamento</h1><p class="sub" id="hSub">Veja fotos, valores e detalhes de cada imóvel. Gostou de algum? Chame o corretor direto pelo WhatsApp.</p></section>
@@ -36,6 +32,7 @@
 
 <dialog id="dlg"><div class="dh"><h2 id="dt"></h2><button class="x" id="dx" aria-label="Fechar">&times;</button></div><div class="db" id="dbody"></div></dialog>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="corretor.js"></script>

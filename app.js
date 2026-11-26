@@ -1,43 +1,73 @@
-/* CATÁLOGO: o que o cliente vê (lista, filtros e detalhe do imóvel). */
+/* CATÁLOGO: o que o cliente vê (lista, filtros e detalhe do imóvel).
+   Os dados vêm do Supabase. Quando o corretor salva, o banco já é atualizado e o site do cliente também. */
 /* ===== ESTADO ===== */
 const $=s=>document.querySelector(s);
 const brl=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n||0);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ST={venda:'À venda',reservado:'Reservado',vendido:'Vendido'};
-let pub=[],pubCfg={...CFG0},draft=null,draftCfg=null,user=null;
-const cfg=()=>user?draftCfg:pubCfg;
-const norm=d=>Array.isArray(d)?{config:{},imoveis:d}:{config:d.config||{},imoveis:d.imoveis||[]};
-const mescla=c=>({...CFG0,...c,perfis:{...(c.perfis||{})}});
-const corr=id=>({...(CORRETORES.find(x=>x.id===id)||{}),...((cfg().perfis||{})[id]||{})});
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let imoveis=[],corretores=[],cfgAtual={...CFG0},user=null,erroCarga=null;
+const cfg=()=>cfgAtual;
+const corr=id=>corretores.find(x=>x.id===id)||{};
 const nomeDe=id=>corr(id).nome||'—';
-const lista=()=>user?draft:pub;
+const lista=()=>imoveis;
 const pode=()=>!!user;
 const escurecer=h=>'#'+[1,3,5].map(k=>Math.round(parseInt(h.substr(k,2),16)*.8).toString(16).padStart(2,'0')).join('');
-const salvar=()=>{try{localStorage.setItem('imoveis_rascunho',JSON.stringify({config:draftCfg,imoveis:draft}))}catch(e){alert('Memória do navegador cheia. Use links de foto em vez de enviar arquivos.')}};
 const luz=h=>{const [r,g,b]=[1,3,5].map(k=>parseInt(h.substr(k,2),16)/255);return .2126*r+.7152*g+.0722*b};
+const doBanco=r=>({...r,corretor:r.corretor_id,preco:+r.preco,area:+r.area,fotos:r.fotos||[]});
 function aplicar(){
  const c=cfg(),r=document.documentElement.style;
  $('#brand').textContent=c.marca;$('#hTitulo').textContent=c.titulo;$('#hSub').textContent=c.sub;$('#rodape').textContent=c.rodape;
  r.setProperty('--ac',c.cor);r.setProperty('--acd',escurecer(c.cor));r.setProperty('--acink',luz(c.cor)>.55?'#0f172a':'#fff');
 }
 
+/* ===== CARGA DOS DADOS ===== */
+async function carregar(){
+ const [a,b,c]=await Promise.all([
+  sb.from('imoveis').select('*').order('created_at',{ascending:false}),
+  sb.from('corretores').select('id,nome,whats').order('nome'),
+  sb.from('site_config').select('*').eq('id',1).maybeSingle()
+ ]);
+ const e=a.error||b.error||c.error;if(e)throw e;
+ imoveis=a.data.map(doBanco);corretores=b.data;cfgAtual={...CFG0,...(c.data||{})};
+}
+async function recarregar(){try{await carregar();erroCarga=null}catch(e){console.error(e);erroCarga=e}desenhar()}
+
+/* Quando alguém edita (corretor), as telas abertas dos clientes se atualizam sozinhas */
+let tRt;
+function ouvirMudancas(){
+ sb.channel('rv-mudancas').on('postgres_changes',{event:'*',schema:'public'},()=>{clearTimeout(tRt);tRt=setTimeout(recarregar,300)}).subscribe();
+}
+
+/* ===== SESSÃO DO CORRETOR ===== */
+async function carregarUsuario(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){user=null;barra();return}
+ const {data,error}=await sb.from('corretores_acesso').select('corretor_id,nome,admin').eq('user_id',session.user.id).maybeSingle();
+ if(error||!data){await sb.auth.signOut();user=null;barra();return false}
+ user={uid:session.user.id,id:data.corretor_id,nome:data.nome,admin:data.admin};
+ barra();return true;
+}
+function barra(){
+ $('#bar').hidden=!user;$('#loginBtn').textContent=user?'Modo corretor ativo':'Área do corretor';
+ if(user){$('#who').textContent='Modo corretor: '+user.nome;$('#perfil').hidden=!user.id}
+}
 async function init(){
- try{const r=await fetch('imoveis.json',{cache:'no-store'});if(!r.ok)throw 0;const d=norm(await r.json());pub=d.imoveis;pubCfg=mescla(d.config)}catch(e){pub=EXEMPLOS;pubCfg=mescla({})}
+ $('#grid').innerHTML='<div class="empty">Carregando imóveis…</div>';
  aplicar();
- const u=sessionStorage.getItem('user');if(u){user=CORRETORES.find(c=>c.id===u);if(user)abrirRascunho()}
- desenhar();
+ await recarregar();
+ await carregarUsuario();desenhar();
+ ouvirMudancas();
 }
-function abrirRascunho(){
- let d=null;try{d=JSON.parse(localStorage.getItem('imoveis_rascunho'))}catch(e){}
- if(d){d=norm(d);draft=d.imoveis;draftCfg=mescla(d.config)}
- else{draft=JSON.parse(JSON.stringify(pub));draftCfg=mescla(JSON.parse(JSON.stringify(pubCfg)))}
- barra();
-}
-function barra(){$('#bar').hidden=!user;$('#loginBtn').textContent=user?'Modo corretor ativo':'Área do corretor';if(user)$('#who').textContent='Modo corretor: '+user.nome}
+
+/* ===== FOTOS NO STORAGE ===== */
+const caminhoFoto=u=>{const m=String(u).split('/object/public/'+BUCKET+'/')[1];return m?decodeURIComponent(m.split('?')[0]):null};
+async function apagarFotos(urls){const p=(urls||[]).map(caminhoFoto).filter(Boolean);if(p.length)await sb.storage.from(BUCKET).remove(p)}
 
 /* ===== LISTA ===== */
 function desenhar(){
  aplicar();
+ if(erroCarga){$('#count').textContent='';$('#grid').innerHTML='<div class="empty">Não foi possível carregar os imóveis agora. Tente novamente em instantes.</div>';return}
  const q=$('#fq').value.toLowerCase(),b=+$('#fb').value||0,p=+$('#fp').value||1e12;
  const r=lista().filter(i=>(!q||(i.titulo+' '+i.bairro).toLowerCase().includes(q))&&i.quartos>=b&&i.preco<=p);
  $('#count').textContent=r.length===1?'1 imóvel encontrado':r.length+' imóveis encontrados';
@@ -45,13 +75,21 @@ function desenhar(){
 }
 function card(i){
  const img=i.fotos&&i.fotos[0]?`<img class="cv" src="${esc(i.fotos[0])}" alt="${esc(i.titulo)}" loading="lazy">`:'<div class="ph">Foto em breve</div>';
- const ed=pode()?`<div class="edit"><button data-e="${i.id}">Editar</button><button class="del" data-d="${i.id}">Excluir</button></div>`:'';
- return `<article class="card" data-id="${i.id}"><div class="pic">${img}<span class="tag ${i.status}">${ST[i.status]||''}</span></div><div class="body"><div class="price">${brl(i.preco)}</div><div class="name">${esc(i.titulo)}</div><div class="loc">${esc(i.bairro)}</div><div class="facts"><span>${i.quartos} <small>quartos</small></span><span>${i.banheiros} <small>banh.</small></span><span>${i.vagas} <small>vagas</small></span><span>${i.area} <small>m²</small></span></div><div class="by">Corretor: ${esc(nomeDe(i.corretor))}</div>${ed}</div></article>`;
+ const ed=pode()?`<div class="edit"><button data-e="${esc(i.id)}">Editar</button><button class="del" data-d="${esc(i.id)}">Excluir</button></div>`:'';
+ return `<article class="card" data-id="${esc(i.id)}"><div class="pic">${img}<span class="tag ${i.status}">${ST[i.status]||''}</span></div><div class="body"><div class="price">${brl(i.preco)}</div><div class="name">${esc(i.titulo)}</div><div class="loc">${esc(i.bairro)}</div><div class="facts"><span>${i.quartos} <small>quartos</small></span><span>${i.banheiros} <small>banh.</small></span><span>${i.vagas} <small>vagas</small></span><span>${i.area} <small>m²</small></span></div><div class="by">Corretor: ${esc(nomeDe(i.corretor))}</div>${ed}</div></article>`;
 }
-$('#grid').addEventListener('click',e=>{
+$('#grid').addEventListener('click',async e=>{
  const be=e.target.closest('[data-e]'),bd=e.target.closest('[data-d]');
  if(be){e.stopPropagation();return formImovel(be.dataset.e)}
- if(bd){e.stopPropagation();if(confirm('Excluir este imóvel?')){draft=draft.filter(i=>i.id!==bd.dataset.d);salvar();desenhar()}return}
+ if(bd){
+  e.stopPropagation();
+  if(!confirm('Excluir este imóvel? Isso some do site dos clientes na hora.'))return;
+  const id=bd.dataset.d,fotos=(imoveis.find(i=>i.id===id)||{}).fotos;
+  const {error}=await sb.from('imoveis').delete().eq('id',id);
+  if(error){alert('Não foi possível excluir: '+error.message);return}
+  apagarFotos(fotos).catch(console.error);
+  await recarregar();return;
+ }
  const c=e.target.closest('.card');if(c)detalhe(c.dataset.id);
 });
 ['#fq','#fb','#fp'].forEach(s=>$(s).addEventListener('input',desenhar));
