@@ -7,6 +7,21 @@ COMO FUNCIONA
 - Tudo que o corretor salva vai direto para o banco: o site dos clientes mostra a mudança na hora
   (quem está com a página aberta vê atualizar sozinho). Não precisa mais exportar nem subir arquivo.
 
+IMPORTAR PASTA (modo corretor > "Importar pasta")
+Monte uma pasta com UMA SUBPASTA POR IMÓVEL. Dentro de cada uma: as fotos + um arquivo info.txt.
+  Meus imoveis/
+    Apto Jardins/   info.txt, capa.jpg, sala.jpg, 2.jpg, 10.jpg ...
+    Studio Pinheiros/   info.txt, 01.jpg, 02.jpg ...
+Escolha a pasta (computador) ou um .zip dela (funciona no celular). O sistema separa cada imóvel,
+lê o info.txt, ordena as fotos (a "capa" vem primeiro; o resto em ordem natural: 2 antes de 10),
+mostra uma PRÉVIA editável e só salva depois que você confirmar. Imóvel já cadastrado (mesmo título
+e bairro) vem desmarcado. Fotos HEIC (iPhone) não são lidas: converta para JPG.
+No info.txt (um por linha; só Título, Bairro e Preço são obrigatórios):
+  Título: ...   Bairro: ...   Preço: 890000 (aceita R$ 890.000,00 / 890 mil / 1,2 milhão)
+  Quartos: 3    Banheiros: 2  Vagas: 2   Área: 105   Situação: venda | reservado | vendido
+  Corretor: maria (id ou nome)   Descrição: texto (pode ter várias linhas)
+Também vale um info.json com os mesmos nomes. Há um botão para baixar um modelo pronto.
+
 NOVO CORRETOR
 1. Supabase > Authentication > Users > Add user (e-mail + senha, marque "Auto Confirm User").
 2. Vincular o usuário à tabela de acesso (SQL Editor):
