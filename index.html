@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R.V Radar de Vendas</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("tema")||"dark"}catch(e){document.documentElement.dataset.theme="light"}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header><div class="wrap top"><div class="brandbox"><span class="logo" role="img" aria-label="R.V Radar de Vendas"></span><div class="brand" id="brand">R.V</div></div><div class="acts"><button class="gear" id="gearBtn" aria-label="Configurações" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button><div class="menu" id="menu" hidden><button id="loginBtn">Área do corretor</button><button id="themeBtn"></button></div></div></div></header>
+<div class="bar" id="bar" hidden><div class="wrap">
+<b id="who"></b>
+<button class="pri" id="novo">Novo imóvel</button>
+<button id="site">Editar site</button>
+<button id="perfil">Meu perfil</button>
+<button id="exp">Exportar dados</button>
+<button id="imp">Importar</button>
+<button id="rst">Descartar alterações</button>
+<button id="sair">Sair</button>
+<input type="file" id="impf" accept=".json" hidden>
+</div></div>
+<main class="wrap">
+<section class="hero"><h1 id="hTitulo">Encontre seu próximo apartamento</h1><p class="sub" id="hSub">Veja fotos, valores e detalhes de cada imóvel. Gostou de algum? Chame o corretor direto pelo WhatsApp.</p></section>
+<div class="filters">
+<input id="fq" type="search" placeholder="Buscar por bairro ou nome" aria-label="Buscar">
+<select id="fb" aria-label="Quartos"><option value="">Quartos</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select>
+<select id="fp" aria-label="Preço máximo"><option value="">Preço máximo</option><option value="300000">Até R$ 300 mil</option><option value="500000">Até R$ 500 mil</option><option value="800000">Até R$ 800 mil</option><option value="1200000">Até R$ 1,2 milhão</option><option value="2000000">Até R$ 2 milhões</option></select>
+</div>
+<p class="count" id="count"></p>
+<div class="grid" id="grid"></div>
+</main>
+<footer><div class="wrap" id="rodape">Valores e disponibilidade sujeitos a alteração. Fale com o corretor para confirmar.</div></footer>
+
+<dialog id="dlg"><div class="dh"><h2 id="dt"></h2><button class="x" id="dx" aria-label="Fechar">&times;</button></div><div class="db" id="dbody"></div></dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="corretor.js"></script>
+</body>
+</html>

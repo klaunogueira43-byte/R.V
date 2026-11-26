@@ -1,0 +1,1 @@
+Coloque as fotos dos imoveis aqui, na mesma pasta do index.html (ex.: sala.jpg), e use apenas o nome do arquivo no cadastro (sala.jpg).

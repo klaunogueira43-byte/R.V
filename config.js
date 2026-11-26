@@ -1,0 +1,14 @@
+/* ARQUIVO DE CONFIGURAÇÃO: logins dos corretores, textos padrão e imóveis de exemplo.
+   Atenção: as senhas ficam visíveis no código do site. Servem só para o protótipo. */
+const CORRETORES=[
+ {id:'admin',login:'admin',nome:'Administrador',senha:'admin123',admin:true},
+ {id:'maria',login:'maria',nome:'Maria Souza',whats:'5511999990001',senha:'maria123'},
+ {id:'joao',login:'joao',nome:'João Lima',whats:'5511999990002',senha:'joao123'},
+ {id:'ana',login:'ana',nome:'Ana Costa',whats:'5511999990003',senha:'ana123'}
+];
+const CFG0={marca:'R.V',titulo:'Encontre seu próximo apartamento',sub:'Veja fotos, valores e detalhes de cada imóvel. Gostou de algum? Chame o corretor direto pelo WhatsApp.',rodape:'Valores e disponibilidade sujeitos a alteração. Fale com o corretor para confirmar.',cor:'#0f6b8f',zap:'Olá! Vi o imóvel "{titulo}" ({bairro}) por {preco} e gostaria de mais informações.',perfis:{}};
+const EXEMPLOS=[
+ {id:'a1',titulo:'Apartamento com varanda gourmet',bairro:'Jardins',preco:890000,quartos:3,banheiros:2,vagas:2,area:105,status:'venda',corretor:'maria',fotos:[],descricao:'Andar alto, sol da manhã e varanda integrada à sala.\nCondomínio com lazer completo e portaria 24h.'},
+ {id:'a2',titulo:'Apartamento reformado perto do metrô',bairro:'Vila Mariana',preco:520000,quartos:2,banheiros:1,vagas:1,area:68,status:'venda',corretor:'joao',fotos:[],descricao:'Totalmente reformado, pronto para morar.\nA 5 minutos a pé do metrô.'},
+ {id:'a3',titulo:'Studio mobiliado',bairro:'Pinheiros',preco:310000,quartos:1,banheiros:1,vagas:0,area:34,status:'reservado',corretor:'maria',fotos:[],descricao:'Ótimo para morar ou investir. Entrega com móveis planejados.'}
+];
