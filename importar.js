@@ -17,7 +17,8 @@ const IMP_ALIAS={};
  ['banheiros','banheiros','banheiro','banhos','wc'],
  ['vagas','vagas','vaga','garagem'],
  ['area','area','areautil','metragem','m2','tamanho'],
- ['status','status','situacao'],
+ ['status','status','situacao','disponivel','disponibilidade','temainda'],
+ ['cidade','cidade','municipio'],
  ['corretor','corretor','corretora','responsavel'],
  ['descricao','descricao','detalhes','observacoes','obs','sobre','texto']
 ].forEach(([campo,...nomes])=>nomes.forEach(n=>IMP_ALIAS[n]=campo));
@@ -56,11 +57,54 @@ function impLerInfo(texto,nomeArquivo){
  return o;
 }
 
+
+/* ===== Estrutura Cidade / Construtora / (imagens, plantas, implantação, localização, book, enunciado) ===== */
+const IMP_CATS=[['imagens',/^(imagens?|fotos?)$/],['implantacao',/^implantacao$/],['plantas',/^plantas?$/],['localizacao',/^localizacao$/],['book',/^book/]];
+const IMP_ORDEM={raiz:0,imagens:0,implantacao:1,plantas:2,localizacao:3,book:4,outros:5};
+const impCat=s=>{const k=impChave(s),c=IMP_CATS.find(([,r])=>r.test(k));return c?c[0]:null};
+const IMP_TIK=/^(tiktok|tiktek)$/;
+const IMP_CAPA=/^(capa|cover|principal|destaque)$/i,IMP_PREF=/^(info|informacoes|dados|imovel|detalhes|descricao|enunciado)$/i;
+const impSemExt=n=>n.replace(/\.[^.]+$/,'');
+
+function impAgruparCidades(lim){
+ const dirs=new Set();
+ for(const e of lim){const d=e.segs.slice(0,-1),k=d.findIndex((s,i)=>i>=1&&impCat(s));if(k>=1)dirs.add(JSON.stringify(d.slice(0,k)))}
+ if(!dirs.size)return null;
+ const emps=[...dirs].map(x=>JSON.parse(x)).sort((a,b)=>b.length-a.length);
+ const mapa=new Map(),tik=[];
+ for(const e of lim){
+  const nome=e.segs[e.segs.length-1],emp=emps.find(p=>p.length<e.segs.length&&p.every((s,i)=>s===e.segs[i]));
+  if(!emp){
+   const ti=e.segs.findIndex(s=>IMP_TIK.test(impChave(s)));
+   if(ti>=0&&e.segs.length>=ti+4&&IMP_INFO.test(nome))tik.push({cidade:e.segs[ti+1],imovel:e.segs[ti+2],item:{name:nome,path:e.segs.slice(ti).join('/'),file:e.file}});
+   continue;
+  }
+  const key=emp.join('/');
+  if(!mapa.has(key))mapa.set(key,{nome:emp[emp.length-1],cidade:emp.length>1?emp[emp.length-2]:'',imgs:[],heic:[],infos:[],pdfs:0});
+  const g=mapa.get(key),rel=e.segs.slice(emp.length),cat=rel.length>1?(impCat(rel[0])||'outros'):'raiz';
+  const item={name:nome,path:rel.join('/'),file:e.file,cat};
+  if(IMP_IMG.test(nome))g.imgs.push(item);
+  else if(IMP_HEIC.test(nome))g.heic.push(item);
+  else if(IMP_INFO.test(nome)&&(rel.length===1||/^enunciado/.test(impChave(rel[0]))))g.infos.push(item);
+  else g.pdfs++;
+ }
+ const grupos=[...mapa.values()].sort((a,b)=>impNat(a.cidade,b.cidade)||impNat(a.nome,b.nome));
+ for(const g of grupos){
+  g.imgs.sort((a,b)=>(IMP_ORDEM[a.cat]-IMP_ORDEM[b.cat])||(IMP_CAPA.test(impSemExt(b.name))-IMP_CAPA.test(impSemExt(a.name)))||impNat(a.path,b.path));
+  g.info=[...g.infos].sort((a,b)=>(IMP_PREF.test(impChave(impSemExt(b.name)))-IMP_PREF.test(impChave(impSemExt(a.name))))||impNat(a.path,b.path))[0]||null;
+  const kn=impChave(g.nome),kc=impChave(g.cidade);
+  const par=tik.filter(t=>{const ki=impChave(t.imovel);return ki&&kn&&(ki===kn||(Math.min(ki.length,kn.length)>=4&&(ki.includes(kn)||kn.includes(ki))))&&(!kc||impChave(t.cidade)===kc)});
+  g.tik=par.map(t=>t.item).sort((a,b)=>(IMP_PREF.test(impChave(impSemExt(b.name)))-IMP_PREF.test(impChave(impSemExt(a.name))))||impNat(a.path,b.path))[0]||null;
+ }
+ return grupos.filter(g=>g.imgs.length||g.info||g.heic.length);
+}
+
 /* entradas: [{path:'Pasta/Apto 1/foto.jpg', file}]  ->  grupos, um por imóvel */
 function impAgrupar(entradas,nomeRaiz){
  const lim=entradas.map(e=>({file:e.file,segs:String(e.path).replace(/\\/g,'/').split('/').filter(Boolean)}))
   .filter(e=>e.segs.length&&!e.segs.some(s=>s.startsWith('.')||s==='__MACOSX')&&!/^(thumbs\.db|desktop\.ini)$/i.test(e.segs[e.segs.length-1]));
  if(!lim.length)return [];
+ const cid=impAgruparCidades(lim);if(cid)return cid;
  let pref=lim[0].segs.slice(0,-1);                  /* pasta(s) em comum: a "raiz" escolhida */
  for(const e of lim){const d=e.segs.slice(0,-1);let k=0;while(k<pref.length&&k<d.length&&pref[k]===d[k])k++;pref=pref.slice(0,k)}
  const raiz=pref[pref.length-1]||nomeRaiz||'Imóvel';
@@ -88,8 +132,9 @@ function impAgrupar(entradas,nomeRaiz){
  return grupos.filter(g=>g.imgs.length||g.info||g.heic.length);
 }
 
+const impBairro=(b,c)=>{b=(b||'').trim();c=impBonito(c);return !c?b:!b?c:impChave(b).includes(impChave(c))?b:b+' - '+c};
 const impBonito=s=>String(s||'').replace(/[_]+/g,' ').replace(/\s*-\s*/g,' - ').replace(/\s+/g,' ').trim();
-function impStatus(s){const t=impSem(s);return /vendid/.test(t)?'vendido':/reserv/.test(t)?'reservado':'venda'}
+function impStatus(s){const t=impSem(s);return /vendid|esgot|indispon|acabou|^nao\b/.test(t)?'vendido':/reserv/.test(t)?'reservado':'venda'}
 function impAchaCorretor(txt,corretores){
  const t=impChave(txt);if(!t)return null;
  const c=corretores.find(x=>impChave(x.id)===t||impChave(x.nome)===t)      /* id ou nome completo */
@@ -98,17 +143,19 @@ function impAchaCorretor(txt,corretores){
 }
 
 /* grupo + texto do info  ->  imóvel pronto para a prévia */
-function impMontar(g,texto,ctx){
+function impMontar(g,texto,ctx,textoTik){
  const av=[];let d={};
  if(g.info){try{d=impLerInfo(texto,g.info.name)}catch(e){av.push('Não consegui ler "'+g.info.name+'". Confira se o arquivo está correto e preencha abaixo.')}}
- else av.push('Sem arquivo de informações (info.txt): preencha os campos abaixo.');
+ else av.push('Sem arquivo de informações (info.txt / enunciado): preencha os campos abaixo.');
+ if(g.tik&&textoTik){try{const t=impLerInfo(textoTik,g.tik.name);for(const k of Object.keys(t))if(!d[k]||k==='status')d[k]=t[k];av.push('Dados da pasta TikTok aplicados.')}catch(e){av.push('Não consegui ler a pasta TikTok deste imóvel.')}}
+ if(g.pdfs)av.push(g.pdfs+' arquivo(s) que não são foto/texto (PDF, book etc.) não foram importados.');
  if(!g.imgs.length)av.push('Nenhuma foto encontrada nesta pasta.');
  if(g.heic.length)av.push(g.heic.length+' foto(s) HEIC/HEIF ignorada(s): converta para JPG e tente de novo.');
  let corretor=impAchaCorretor(d.corretor,ctx.corretores);
  if(d.corretor&&!corretor)av.push('Corretor "'+d.corretor+'" não encontrado: usei '+(ctx.padraoNome||'o padrão')+'.');
  const n=k=>{const v=impNumero(d[k]);return v==null?0:v};
- const o={pasta:g.nome,imgs:g.imgs,
-  titulo:(d.titulo||'').trim()||impBonito(g.nome),bairro:(d.bairro||'').trim(),preco:Math.round(n('preco')),
+ const o={pasta:(g.cidade?g.cidade+' / ':'')+g.nome,imgs:g.imgs,
+  titulo:(d.titulo||'').trim()||impBonito(g.nome),bairro:impBairro(d.bairro,d.cidade||g.cidade),preco:Math.round(n('preco')),
   quartos:Math.round(n('quartos')),banheiros:Math.round(n('banheiros')),vagas:Math.round(n('vagas')),area:n('area'),
   status:impStatus(d.status),corretor_id:corretor||ctx.padrao||null,descricao:(d.descricao||'').trim(),avisos:av};
  if(g.info&&!d.titulo)av.push('Sem "Título" no arquivo: usei o nome da pasta.');
@@ -123,7 +170,7 @@ function impMontar(g,texto,ctx){
 
 async function impAnalisar(entradas,nomeRaiz,ctx){
  const grupos=impAgrupar(entradas,nomeRaiz),itens=[];
- for(const g of grupos){let t='';if(g.info){try{t=await g.info.file.text()}catch(e){}}itens.push(impMontar(g,t,ctx))}
+ for(const g of grupos){let t='';if(g.info){try{t=await g.info.file.text()}catch(e){}}let tk='';if(g.tik){try{tk=await g.tik.file.text()}catch(e){}}itens.push(impMontar(g,t,ctx,tk))}
  return itens;
 }
 
@@ -151,7 +198,7 @@ if(typeof document!=='undefined'){
 
  $('#importar').onclick=()=>{
   $('#dt').textContent='Importar pasta de imóveis';
-  $('#dbody').innerHTML=`<p style="margin-top:0">Escolha uma <b>pasta</b> (ou um arquivo <b>.zip</b>) com <b>uma subpasta para cada imóvel</b>. Dentro de cada subpasta coloque as fotos e um arquivo <b>info.txt</b> com os dados. O sistema separa tudo, organiza as fotos e mostra uma prévia para você conferir antes de salvar.</p>
+  $('#dbody').innerHTML=`<p style="margin-top:0">Escolha a pasta <b>Thais Imob</b> (ou uma cidade, ou um <b>.zip</b>): cada pasta de construtora dentro de uma cidade vira um imóvel. Também funciona com <b>uma subpasta para cada imóvel</b>. Dentro de cada subpasta coloque as fotos e um arquivo <b>info.txt</b> com os dados. O sistema separa tudo, organiza as fotos e mostra uma prévia para você conferir antes de salvar.</p>
   <pre class="imp-ex">Meus imóveis/
  ├─ Apto Jardins/
  │   ├─ info.txt

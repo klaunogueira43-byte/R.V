@@ -22,6 +22,16 @@ No info.txt (um por linha; só Título, Bairro e Preço são obrigatórios):
   Corretor: maria (id ou nome)   Descrição: texto (pode ter várias linhas)
 Também vale um info.json com os mesmos nomes. Há um botão para baixar um modelo pronto.
 
+IMPORTAR A PASTA THAIS IMOB (cidade > construtora)
+Escolha a pasta "Thais Imob" (ou só uma cidade, ou o .zip). Cada pasta de construtora dentro de uma cidade vira UM imóvel:
+  Thais Imob/Arujá/CAC Verdi/ imagens, implantação, plantas, localização, book de entrega, enunciado.txt
+- Fotos entram nesta ordem: imagens (capa primeiro), implantação, plantas, localização.
+- O "enunciado" (txt) fornece os dados; com linhas "Preço: ...", "Quartos: ..." ele preenche os campos, e texto solto vira descrição.
+- A cidade vai junto no bairro (ex: "Centro - Arujá"); se não houver bairro, usa só a cidade.
+- Pasta TikTok/<cidade>/<imóvel>: não cria imóvel; se o nome bater com uma construtora, o info dela completa os dados
+  (ex: "Disponível: não" marca como vendido).
+- PDFs (book de entrega) ainda não são importados.
+
 NOVO CORRETOR
 1. Supabase > Authentication > Users > Add user (e-mail + senha, marque "Auto Confirm User").
 2. Vincular o usuário à tabela de acesso (SQL Editor):
