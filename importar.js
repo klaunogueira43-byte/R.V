@@ -63,7 +63,7 @@ const IMP_CATS=[['imagens',/^(imagens?|fotos?)$/],['implantacao',/^implantacao$/
 const IMP_ORDEM={raiz:0,imagens:0,implantacao:1,plantas:2,localizacao:3,book:4,outros:5};
 const impCat=s=>{const k=impChave(s),c=IMP_CATS.find(([,r])=>r.test(k));return c?c[0]:null};
 const IMP_TIK=/^(tiktok|tiktek)$/;
-const IMP_CAPA=/^(capa|cover|principal|destaque)$/i,IMP_PREF=/^(info|informacoes|dados|imovel|detalhes|descricao|enunciado)$/i;
+const IMP_CAPA=/^(capa|cover|principal|destaque)$/i,IMP_PREF=/^(info|informacoes|dados|imovel|detalhes|descricao|enunciado)/i;
 const impSemExt=n=>n.replace(/\.[^.]+$/,'');
 
 function impAgruparCidades(lim){
@@ -123,7 +123,7 @@ function impAgrupar(entradas,nomeRaiz){
   }else if(raizG.imgs.length||(raizG.infos.length&&!grupos.length))grupos.unshift(raizG);
   /* raiz sem fotos e com outras pastas: arquivos soltos são ignorados */
  }
- const CAPA=/^(capa|cover|principal|destaque)$/i,PREF=/^(info|informacoes|dados|imovel|detalhes|descricao)$/i;
+ const CAPA=/^(capa|cover|principal|destaque)$/i,PREF=/^(info|informacoes|dados|imovel|detalhes|descricao|enunciado)/i;
  const semExt=n=>n.replace(/\.[^.]+$/,'');
  for(const g of grupos){
   g.imgs.sort((a,b)=>(CAPA.test(semExt(b.name))-CAPA.test(semExt(a.name)))||impNat(a.path,b.path));  /* capa primeiro, resto em ordem natural (2 antes de 10) */
@@ -148,6 +148,12 @@ function impMontar(g,texto,ctx,textoTik){
  if(g.info){try{d=impLerInfo(texto,g.info.name)}catch(e){av.push('Não consegui ler "'+g.info.name+'". Confira se o arquivo está correto e preencha abaixo.')}}
  else av.push('Sem arquivo de informações (info.txt / enunciado): preencha os campos abaixo.');
  if(g.tik&&textoTik){try{const t=impLerInfo(textoTik,g.tik.name);for(const k of Object.keys(t))if(!d[k]||k==='status')d[k]=t[k];av.push('Dados da pasta TikTok aplicados.')}catch(e){av.push('Não consegui ler a pasta TikTok deste imóvel.')}}
+ /* enunciado em texto corrido (estilo WhatsApp): título = 1ª linha, e dormitórios/área tirados do texto */
+ d.descricao=(d.descricao||'').replace(/\*/g,'').replace(/[ \t]+$/gm,'').trim();
+ if(!d.titulo&&d.descricao){const l=d.descricao.split('\n')[0].replace(/^[^\p{L}\p{N}]+/u,'').trim();if(l&&l.length<=60&&!/:/.test(l))d.titulo=impBonito(l.toLowerCase().replace(/(^|\s)\S/g,x=>x.toUpperCase()))}
+ if(!d.quartos){const m=d.descricao.match(/(\d+)\s*(dormit|quarto|su[ií]te)/i);if(m)d.quartos=m[1]}
+ if(!d.area){const m=d.descricao.match(/(\d+(?:[.,]\d+)?)\s*(?:a|à|-)\s*\d+(?:[.,]\d+)?\s*m[²2]/i);if(m)d.area=m[1]}
+ if(!d.vagas){const m=d.descricao.match(/(\d+)\s*vagas?/i);if(m)d.vagas=m[1];else if(/\bvaga\b/i.test(d.descricao))d.vagas='1'}
  if(g.pdfs)av.push(g.pdfs+' arquivo(s) que não são foto/texto (PDF, book etc.) não foram importados.');
  if(!g.imgs.length)av.push('Nenhuma foto encontrada nesta pasta.');
  if(g.heic.length)av.push(g.heic.length+' foto(s) HEIC/HEIF ignorada(s): converta para JPG e tente de novo.');
@@ -160,7 +166,7 @@ function impMontar(g,texto,ctx,textoTik){
   status:impStatus(d.status),corretor_id:corretor||ctx.padrao||null,descricao:(d.descricao||'').trim(),avisos:av};
  if(g.info&&!d.titulo)av.push('Sem "Título" no arquivo: usei o nome da pasta.');
  if(g.info&&!o.bairro)av.push('Falta o bairro.');
- if(g.info&&!o.preco)av.push('Falta o preço.');
+ if(g.info&&!o.preco)av.push('Sem preço: vai aparecer como "Sob consulta" até você editar.');
  const chaveI=x=>impChave(x.titulo)+'|'+impChave(x.bairro);
  o.duplicado=(ctx.existentes||[]).some(x=>chaveI(x)===chaveI(o));
  if(o.duplicado)av.push('Parece que este imóvel já está cadastrado (mesmo título e bairro). Desmarcado por segurança.');
@@ -284,8 +290,8 @@ if(typeof document!=='undefined'){
    const sel=itens.filter(o=>o.marcado);let ruim=null;
    document.querySelectorAll('#imf .bad').forEach(x=>x.classList.remove('bad'));
    sel.forEach(o=>{const el=$('#imf .imp-it[data-k="'+itens.indexOf(o)+'"]');
-    [['titulo',!o.titulo.trim()],['bairro',!o.bairro.trim()],['preco',!(o.preco>0)]].forEach(([f,mal])=>{if(mal){const i=el.querySelector('[data-f="'+f+'"]');i.classList.add('bad');ruim=ruim||i}})});
-   if(ruim){$('#ie').textContent='Preencha título, bairro e preço dos imóveis marcados (campos em vermelho).';$('#ie').hidden=false;ruim.scrollIntoView({block:'center'});ruim.focus();return}
+    [['titulo',!o.titulo.trim()],['bairro',!o.bairro.trim()]].forEach(([f,mal])=>{if(mal){const i=el.querySelector('[data-f="'+f+'"]');i.classList.add('bad');ruim=ruim||i}})});
+   if(ruim){$('#ie').textContent='Preencha título e bairro dos imóveis marcados (campos em vermelho).';$('#ie').hidden=false;ruim.scrollIntoView({block:'center'});ruim.focus();return}
    impImportar(sel);
   };
  }

@@ -2,7 +2,7 @@
    Os dados vêm do Supabase. Quando o corretor salva, o banco já é atualizado e o site do cliente também. */
 /* ===== ESTADO ===== */
 const $=s=>document.querySelector(s);
-const brl=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n||0);
+const brl=n=>!(+n)?'Sob consulta':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ST={venda:'À venda',reservado:'Reservado',vendido:'Vendido'};
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
