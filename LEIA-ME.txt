@@ -32,6 +32,17 @@ Escolha a pasta "Thais Imob" (ou só uma cidade, ou o .zip). Cada pasta de const
   (ex: "Disponível: não" marca como vendido).
 - PDFs (book de entrega) ainda não são importados.
 
+BUSCAR DIRETO DO GOOGLE DRIVE (uma vez só, para ligar o botão)
+O botão "Buscar do Google Drive" (em Importar pasta) entra na sua conta Google, lê a pasta e importa como se você a tivesse escolhido.
+Só lê (permissão "somente leitura"); a conta que entrar precisa ter acesso à pasta.
+1. Acesse console.cloud.google.com, crie um projeto (ex: "RV Radar").
+2. APIs e serviços > Biblioteca > ative "Google Drive API".
+3. APIs e serviços > Tela de permissão OAuth > Externo > preencha nome e e-mail > em "Usuários de teste" adicione o e-mail que usa o Drive.
+4. APIs e serviços > Credenciais > Criar credenciais > ID do cliente OAuth > "Aplicativo da Web".
+   Em "Origens JavaScript autorizadas" coloque o endereço do site (ex: https://SEUUSUARIO.github.io) e crie.
+5. Copie o ID do cliente e cole em config.js, em GOOGLE_CLIENT_ID (entre as aspas). Publique de novo.
+Na primeira vez o Google avisa "app não verificado": clique em Avançado > continuar (é seu próprio app).
+
 NOVO CORRETOR
 1. Supabase > Authentication > Users > Add user (e-mail + senha, marque "Auto Confirm User").
 2. Vincular o usuário à tabela de acesso (SQL Editor):

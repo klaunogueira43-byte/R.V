@@ -193,6 +193,27 @@ Descrição: Andar alto, sol da manhã e varanda integrada à sala.
 Condomínio com lazer completo e portaria 24h.
 `;
 
+
+/* ================= GOOGLE DRIVE: mapa da pasta (função pura, recebe listar(id) -> [{id,name,mimeType}]) ================= */
+async function impPool(itens,n,fn){let i=0;await Promise.all(Array.from({length:n},async()=>{while(i<itens.length){const k=i++;await fn(itens[k],k)}}))}
+async function impDriveMapear(listar,raizId,raizNome){
+ const arq=[];let fila=[{id:raizId,path:raizNome}];
+ while(fila.length){
+  const nivel=fila;fila=[];
+  await impPool(nivel,6,async p=>{
+   for(const f of await listar(p.id)){
+    const nome=f.name,caminho=p.path+'/'+nome,gdoc=/^application\/vnd\.google-apps\./.test(f.mimeType||'');
+    if(f.mimeType==='application/vnd.google-apps.folder'){if(!nome.startsWith('.'))fila.push({id:f.id,path:caminho})}
+    else if(f.mimeType==='application/vnd.google-apps.document')arq.push({id:f.id,path:caminho+'.txt',tipo:'doc'});
+    else if(!gdoc&&(/^image\/(jpeg|png|webp|gif|bmp)$/.test(f.mimeType||'')||IMP_IMG.test(nome)))arq.push({id:f.id,path:caminho,tipo:'img'});
+    else if(!gdoc&&(/^text\//.test(f.mimeType||'')||IMP_INFO.test(nome)))arq.push({id:f.id,path:caminho,tipo:'txt'});
+    else arq.push({id:f.id,path:caminho,tipo:'outro'});   /* PDF, HEIC, planilhas...: só para avisar que foram ignorados */
+   }
+  });
+ }
+ return arq;
+}
+
 /* ================= TELAS (só rodam no navegador) ================= */
 let impOcupado=false,impUrls=[];
 if(typeof document!=='undefined'){
@@ -220,7 +241,11 @@ if(typeof document!=='undefined'){
    <button class="btn sec" type="button" id="iZip">Escolher arquivo .zip</button>
    <button class="btn sec" type="button" id="iModelo">Baixar modelo do info.txt</button>
   </div>
+  <hr style="margin:14px 0;border:0;border-top:1px solid var(--line,#ccc3)">
+  <label>Ou busque direto do Google Drive (link da pasta)<input id="iDriveLink" placeholder="https://drive.google.com/drive/folders/…" value="${typeof DRIVE_PASTA_ID!=='undefined'&&DRIVE_PASTA_ID?'https://drive.google.com/drive/folders/'+DRIVE_PASTA_ID:''}"></label>
+  <div class="fl" style="justify-content:flex-start"><button class="btn" type="button" id="iDrive">Buscar do Google Drive</button></div>
   <input type="file" id="pastaIn" webkitdirectory multiple hidden><input type="file" id="zipIn" accept=".zip,application/zip,application/x-zip-compressed" hidden>`;
+  $('#iDrive').onclick=()=>{const id=driveId($('#iDriveLink').value);if(!id){$('#ie').textContent='Cole o link da pasta do Google Drive.';$('#ie').hidden=false;return}driveImportar(id)};
   $('#iPasta').onclick=()=>$('#pastaIn').click();
   $('#iZip').onclick=()=>$('#zipIn').click();
   $('#iModelo').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([IMP_MODELO],{type:'text/plain;charset=utf-8'}));a.download='info.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
@@ -240,6 +265,61 @@ if(typeof document!=='undefined'){
   };
   dlg.showModal();
  };
+
+
+ /* ===== GOOGLE DRIVE (navegador) ===== */
+ const DRIVE_API='https://www.googleapis.com/drive/v3/';
+ const driveId=t=>{const s=String(t||'').trim(),m=s.match(/folders\/([\w-]+)/)||s.match(/[?&]id=([\w-]+)/);return m?m[1]:(/^[\w-]{10,}$/.test(s)?s:'')};
+ function driveToken(){return new Promise((ok,no)=>{
+  if(typeof GOOGLE_CLIENT_ID==='undefined'||!GOOGLE_CLIENT_ID)return no(new Error('O login do Google ainda não foi configurado (falta o GOOGLE_CLIENT_ID no config.js). Veja o passo a passo no LEIA-ME.txt.'));
+  const go=()=>{try{google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:'https://www.googleapis.com/auth/drive.readonly',
+    callback:r=>r.access_token?ok(r.access_token):no(new Error(r.error_description||r.error||'Login do Google cancelado.')),
+    error_callback:e=>no(new Error('Login do Google não concluído'+(e&&e.type?' ('+e.type+')':'')+'.'))}).requestAccessToken()}catch(x){no(x)}};
+  if(window.google&&google.accounts&&google.accounts.oauth2)return go();
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=go;s.onerror=()=>no(new Error('Sem internet para carregar o login do Google.'));document.head.appendChild(s);
+ })}
+ async function driveGet(path,tok,json){
+  for(let t=0;;t++){
+   const r=await fetch(DRIVE_API+path,{headers:{Authorization:'Bearer '+tok}});
+   if(r.ok)return json?r.json():r.blob();
+   if(t<2&&(r.status===429||r.status>=500)){await new Promise(z=>setTimeout(z,800*(t+1)));continue}
+   throw new Error('O Google Drive respondeu '+r.status+(r.status===404||r.status===403?' (pasta não encontrada ou sem permissão para esta conta)':'')+'.');
+  }
+ }
+ async function driveListar(id,tok){
+  const out=[];let pt='';
+  do{const q=encodeURIComponent("'"+id+"' in parents and trashed=false");
+   const j=await driveGet('files?q='+q+'&pageSize=1000&fields=nextPageToken,files(id,name,mimeType)&supportsAllDrives=true&includeItemsFromAllDrives=true'+(pt?'&pageToken='+encodeURIComponent(pt):''),tok,true);
+   out.push(...j.files);pt=j.nextPageToken;
+  }while(pt);
+  return out;
+ }
+ async function driveImportar(id){
+  const st=t=>{const e=$('#dst');if(e)e.textContent=t};
+  $('#dt').textContent='Buscando no Google Drive…';
+  $('#dbody').innerHTML='<p id="dst" style="margin-top:0">Entrando no Google…</p><progress id="dpg" max="100" value="0" style="width:100%"></progress><p class="hint">Não feche esta janela. Fotos são reduzidas ao baixar, para economizar memória.</p>';
+  impOcupado=true;$('#dx').hidden=true;
+  try{
+   const tok=await driveToken();
+   st('Lendo as pastas…');
+   const raiz=await driveGet('files/'+id+'?fields=name&supportsAllDrives=true',tok,true);
+   const arq=await impDriveMapear(x=>driveListar(x,tok),id,raiz.name);
+   const baixar=arq.filter(a=>a.tipo!=='outro'),ent=arq.filter(a=>a.tipo==='outro').map(a=>({path:a.path,file:new Blob([])}));
+   let feitos=0,falhas=0;
+   await impPool(baixar,4,async a=>{
+    try{
+     const raw=a.tipo==='doc'?await driveGet('files/'+a.id+'/export?mimeType=text/plain',tok,false):await driveGet('files/'+a.id+'?alt=media&supportsAllDrives=true',tok,false);
+     ent.push({path:a.path,file:a.tipo==='img'?await reduzir(raw):raw});
+    }catch(x){console.error(a.path,x);falhas++}
+    feitos++;st('Baixando '+feitos+' de '+baixar.length+' arquivo(s)…'+(falhas?' ('+falhas+' com erro)':''));$('#dpg').value=Math.round(feitos/Math.max(1,baixar.length)*100);
+   });
+   impOcupado=false;$('#dx').hidden=false;
+   await impComecar(ent,raiz.name);
+  }catch(x){
+   console.error(x);impOcupado=false;$('#dx').hidden=false;
+   $('#importar').onclick();$('#ie').textContent=x.message||String(x);$('#ie').hidden=false;
+  }
+ }
 
  function impCarregarZip(){return new Promise((ok,no)=>{
   if(window.JSZip)return ok();
@@ -336,4 +416,4 @@ if(typeof document!=='undefined'){
  }
 }
 
-if(typeof module!=='undefined')module.exports={impNumero,impLerInfo,impAgrupar,impMontar,impAnalisar,impStatus,impAchaCorretor};
+if(typeof module!=='undefined')module.exports={impDriveMapear,impNumero,impLerInfo,impAgrupar,impMontar,impAnalisar,impStatus,impAchaCorretor};
